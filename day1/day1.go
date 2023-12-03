@@ -1,10 +1,8 @@
-package day1
+package main
 
 import (
-	"bufio"
 	"fmt"
-	"os"
-	"strconv"
+	"github.com/betester/aoc2023/utils"
 )
 
 type TrieNode struct {
@@ -127,14 +125,10 @@ func getTrebuchetScore(trie TrieIterator, input string) int {
 
 func getTrebuchet(it TrieIterator, input []string) int {
 	total := 0
-	scores := ""
 	for _, text := range input {
 		score := getTrebuchetScore(it, text)
-		scores += strconv.Itoa(score) + "\n"
 		total += score
 	}
-
-	os.WriteFile("day1o.out", []byte(scores), 0644)
 
 	return total
 }
@@ -180,17 +174,7 @@ func main() {
 	trie.Insert("thgie", 8)
 	trie.Insert("enin", 9)
 
-	file, err := os.Open("day1.txt")
-	if err != nil {
-		panic(err.Error())
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	array := make([]string, 0)
-	for scanner.Scan() {
-		array = append(array, scanner.Text())
-	}
+	array := utils.FileReader("./day1/day1.txt")
 
 	fmt.Println(getTrebuchet(trie.GetIterator(), array))
 }
