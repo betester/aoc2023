@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"math"
-
 	"github.com/betester/aoc2023/utils"
 )
 
@@ -32,7 +31,17 @@ func inside(consecutiveNumbers [][]int, i, j int) bool {
 	return false
 }
 
-func adjacentContainsSymbol(matrix [][]byte, consecutiveNumbers [][]int, i, j int) bool {
+func contain(array []int, a int) bool {
+	for _, num := range array {
+		if num ==  a {
+			return true;
+		}
+	}
+	return false
+}
+
+func getAdjacentSymbols(matrix [][]byte, consecutiveNumbers [][]int, i, j int) [][]int {
+	adjacentSymbols := make([][]int, 0)
 	directions := [][]int{
 		{-1, 0}, {-1, -1}, {0, -1}, {1, -1},
 		{1, 0}, {1, 1}, {0, 1}, {-1, 1},
@@ -40,58 +49,95 @@ func adjacentContainsSymbol(matrix [][]byte, consecutiveNumbers [][]int, i, j in
 
 	m, n := len(matrix), len(matrix[0]) // assuming matrix is non-empty
 
-	containsSymbol := false
-
 	for _, direction := range directions {
 		a, b := direction[0], direction[1]
 		newI, newJ := i+a, j+b
 
 		// Check if the new coordinates are within the matrix bounds
 		if newI >= 0 && newI < m && newJ >= 0 && newJ < n {
-			if !inside(consecutiveNumbers, newI, newJ) {
-				containsSymbol = isSymbol(matrix[newI][newJ]) || containsSymbol
+			if !inside(consecutiveNumbers, newI, newJ) && isSymbol(matrix[newI][newJ]) {
+				adjacentSymbols = append(adjacentSymbols, []int{newI, newJ})
 			}
 		}
 	}
 
-	return containsSymbol
+	return adjacentSymbols 
 }
 
-func getNumber(matrix [][]byte, consecutiveNumbers [][]int) int {
+func getNumber(matrix [][]byte, consecutiveNumbers [][]int) (int, [][]int) {
 	numberRepr := 0
-	containsSymbol := false
+	adjacentSymbols := make([][]int, 0)
 	for _, numberPos := range consecutiveNumbers {
-		containsSymbol = containsSymbol || adjacentContainsSymbol(matrix, consecutiveNumbers, numberPos[0], numberPos[1])
+		adjacentSymbols = append(adjacentSymbols, getAdjacentSymbols(matrix, consecutiveNumbers, numberPos[0], numberPos[1])...)
 	}
 
-	if containsSymbol {
+	if len(adjacentSymbols) > 0 {
 		for i := 0; i < len(consecutiveNumbers); i++ {
 			a, b := consecutiveNumbers[i][0], consecutiveNumbers[i][1]
 			muliplicationFactor := math.Pow(10, float64(len(consecutiveNumbers)-i-1))
 			numberRepr += convert(matrix[a][b]) * int(muliplicationFactor)
 		}
 	}
-
-	return numberRepr
+	
+	return numberRepr, adjacentSymbols
 }
 
-func getTotal(matrix [][]byte) int {
-	total := 0
+func addSymbolNumber(symbolsNumber map[int]map[int][]int, symbolPositions [][]int, number int) {
+
+	for _, sp := range symbolPositions {
+		i, j := sp[0], sp[1]
+		if _, ok := symbolsNumber[i]; !ok {
+			symbolsNumber[i] = make(map[int][]int)
+		} 
+
+		if _, ok := symbolsNumber[i][j] ;!ok {
+			symbolsNumber[i][j] = make([]int, 0)
+		}
+
+		if !contain(symbolsNumber[i][j], number) {
+			symbolsNumber[i][j] = append(symbolsNumber[i][j], number)
+		}
+
+	}
+}
+
+func getTotalByAdjacentSymbols(matrix [][]byte, n int) int {
+	
+	symbolsNumber := make(map[int]map[int][]int)
+
 	for i := 0; i < len(matrix); i++ {
 		consecutiveDigits := make([][]int, 0)
 		for j := 0; j < len(matrix[i]); j++ {
 			if isDigit(matrix[i][j]) {
 				consecutiveDigits = append(consecutiveDigits, []int{i, j})
 			} else {
-				total += getNumber(matrix, consecutiveDigits)
+				number, adjacentSymbols := getNumber(matrix, consecutiveDigits)
+				addSymbolNumber(symbolsNumber, adjacentSymbols, number)
 				consecutiveDigits = make([][]int, 0)
 			}
 		}
-		total += getNumber(matrix, consecutiveDigits)
+		number, adjacentSymbols := getNumber(matrix, consecutiveDigits)
+		addSymbolNumber(symbolsNumber, adjacentSymbols, number)
+	}
+	total := 0
+
+
+	for _, v := range symbolsNumber {
+		for _, arr := range v {
+			if len(arr) == n {
+				ratio := 1
+				for _, num := range arr {
+					ratio *= num
+				}
+				fmt.Println()
+				total += ratio
+			}
+		}
 	}
 
 	return total
 }
+
 
 func main() {
 	inputs := utils.FileReader("./day3/day3.txt")
@@ -102,5 +148,5 @@ func main() {
 		matrix = append(matrix, row)
 	}
 
-	fmt.Println(getTotal(matrix))
+	fmt.Println(getTotalByAdjacentSymbols(matrix, 2))
 }
