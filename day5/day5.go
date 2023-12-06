@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/betester/aoc2023/utils"
 	"golang.org/x/exp/slices"
@@ -158,5 +159,8 @@ func partB(almanac string, currentRequirements []int, requirements map[string]ma
 func main() {
 	inputs := utils.FileReader("./day5/day5.txt")
 	seeds, requirements := parseInput(inputs)
+	start := time.Now()
 	partB("seed", seeds, requirements)
+	end := time.Since(start)
+	fmt.Println(end)
 }
