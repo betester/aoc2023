@@ -32,6 +32,11 @@ const (
 	HIGH_CARD_SCORE     = 1
 )
 
+type Hand struct {
+	Cards string
+	Bid   int
+}
+
 func getHandScore() map[int]int {
 	scoreMapping := make(map[int]int)
 	scoreMapping[FIVE_OF_KIND] = FIVE_OF_KIND_SCORE
@@ -45,29 +50,23 @@ func getHandScore() map[int]int {
 	return scoreMapping
 }
 
-func getCardScore() map[byte]int {
+func getCardScore(priorityNumbers []int) map[byte]int {
 	cardScore := make(map[byte]int)
+	cardTypes := "23456789TJQKA"
 
-	cardScore['A'] = 13
-	cardScore['K'] = 12
-	cardScore['Q'] = 11
-	cardScore['J'] = 10
-	cardScore['T'] = 9
-	cardScore['9'] = 8
-	cardScore['8'] = 7
-	cardScore['7'] = 6
-	cardScore['6'] = 5
-	cardScore['5'] = 4
-	cardScore['4'] = 3
-	cardScore['3'] = 2
-	cardScore['2'] = 1
+	for i := 0; i < len(priorityNumbers); i++ {
+		cardScore[cardTypes[i]] = priorityNumbers[i]
+	}
 
 	return cardScore
 }
+func getPriorityScores() []int {
+	priorityScores := make([]int, 13)
 
-type Hand struct {
-	Cards string
-	Bid   int
+	for i := 1; i <= len(priorityScores); i++ {
+		priorityScores[i-1] = i
+	}
+	return priorityScores
 }
 
 func parseInput(inputs []string) []Hand {
@@ -93,40 +92,84 @@ func toNum(numbers []int) int {
 	return numRepr
 }
 
-func getHandPriority(s1 []byte, scoreMapping map[int]int) int {
-	sort.Slice(s1, func(i, j int) bool {
-		return s1[i] < s1[j]
-	})
+func wildCardJoker(duplicateMapCounter map[byte]int) {
+	const JOKER = 'J'
 
-	duplicateCounter := make([]int, 0)
-	currDuplicate, total := s1[0], 0
+	if _, ok := duplicateMapCounter[JOKER]; ok {
+		var maxCard byte = 0
+		var maxCardDuplicate int = 0
 
-	for _, b := range s1 {
-		if currDuplicate == b {
-			total++
-		} else {
-			duplicateCounter = append(duplicateCounter, total)
-			total = 1
-			currDuplicate = b
+		for card, duplicateCount := range duplicateMapCounter {
+			if card != JOKER && duplicateCount > maxCardDuplicate {
+				maxCard = card
+				maxCardDuplicate = duplicateCount
+			}
+		}
+
+		// we can be sure that at least the minimum duplicate would be 1
+		if maxCardDuplicate != 0 {
+			duplicateMapCounter[maxCard] += duplicateMapCounter[JOKER]
+			delete(duplicateMapCounter, JOKER)
 		}
 	}
+}
 
-	if total != 0 {
-		duplicateCounter = append(duplicateCounter, total)
+func getHandScoreByDuplicateCount(duplicateCount map[byte]int, scoreMapping map[int]int) int {
+	duplicateList := make([]int, 0)
+	for _, v := range duplicateCount {
+		duplicateList = append(duplicateList, v)
 	}
 
-	sort.Slice(duplicateCounter, func(i, j int) bool {
-		return duplicateCounter[i] < duplicateCounter[j]
+	sort.Slice(duplicateList, func(i, j int) bool {
+		return duplicateList[i] < duplicateList[j]
 	})
 
-	handNumberRepr := toNum(duplicateCounter)
+	handNumberRepr := toNum(duplicateList)
 	return scoreMapping[handNumberRepr]
 }
 
-func compareHands(s1, s2 string, handScoreMapping map[int]int, cardScoreMapping map[byte]int) bool {
-	s1Score := getHandPriority([]byte(s1), handScoreMapping)
-	s2Score := getHandPriority([]byte(s2), handScoreMapping)
+func getDuplicateCount(s1 []byte, scoreMapping map[int]int) map[byte]int {
 
+	duplicateMapCounter := make(map[byte]int, 0)
+
+	for _, b := range s1 {
+		if _, ok := duplicateMapCounter[b]; !ok {
+			duplicateMapCounter[b] = 0
+		}
+
+		duplicateMapCounter[b]++
+	}
+
+	return duplicateMapCounter
+}
+
+func compareHandsPartA(s1, s2 string, handScoreMapping map[int]int, cardScoreMapping map[byte]int) bool {
+	s1DuplicateMap := getDuplicateCount([]byte(s1), handScoreMapping)
+	s2DuplicateMap := getDuplicateCount([]byte(s2), handScoreMapping)
+
+	s1Score := getHandScoreByDuplicateCount(s1DuplicateMap, handScoreMapping)
+	s2Score := getHandScoreByDuplicateCount(s2DuplicateMap, handScoreMapping)
+	if s1Score == s2Score {
+		for i := 0; i < len(s1); i++ {
+			if cardScoreMapping[s1[i]] == cardScoreMapping[s2[i]] {
+				continue
+			}
+			return cardScoreMapping[s1[i]] < cardScoreMapping[s2[i]]
+		}
+	}
+
+	return s1Score < s2Score
+}
+
+func compareHandsPartB(s1, s2 string, handScoreMapping map[int]int, cardScoreMapping map[byte]int) bool {
+	s1DuplicateMap := getDuplicateCount([]byte(s1), handScoreMapping)
+	s2DuplicateMap := getDuplicateCount([]byte(s2), handScoreMapping)
+
+	wildCardJoker(s1DuplicateMap)
+	wildCardJoker(s2DuplicateMap)
+
+	s1Score := getHandScoreByDuplicateCount(s1DuplicateMap, handScoreMapping)
+	s2Score := getHandScoreByDuplicateCount(s2DuplicateMap, handScoreMapping)
 	if s1Score == s2Score {
 		for i := 0; i < len(s1); i++ {
 			if cardScoreMapping[s1[i]] == cardScoreMapping[s2[i]] {
@@ -142,10 +185,30 @@ func compareHands(s1, s2 string, handScoreMapping map[int]int, cardScoreMapping 
 func partA(hands []Hand) int {
 	total, rank := 0, 1
 	handScoreMapping := getHandScore()
-	cardScoreMapping := getCardScore()
+	cardScoreMapping := getCardScore(getPriorityScores())
 
 	sort.Slice(hands, func(i, j int) bool {
-		return compareHands(hands[i].Cards, hands[j].Cards, handScoreMapping, cardScoreMapping)
+		return compareHandsPartA(hands[i].Cards, hands[j].Cards, handScoreMapping, cardScoreMapping)
+	})
+
+	for _, hand := range hands {
+		total += rank * hand.Bid
+		rank++
+	}
+
+	return total
+}
+
+func partB(hands []Hand) int {
+	total, rank := 0, 1
+	handScoreMapping := getHandScore()
+	priorityScores := getPriorityScores()
+	// modify joker to make it the lowest priority
+	priorityScores[9] = 0
+	cardScoreMapping := getCardScore(priorityScores)
+
+	sort.Slice(hands, func(i, j int) bool {
+		return compareHandsPartB(hands[i].Cards, hands[j].Cards, handScoreMapping, cardScoreMapping)
 	})
 
 	for _, hand := range hands {
@@ -159,5 +222,9 @@ func partA(hands []Hand) int {
 func main() {
 	inputs := utils.FileReader("./day7/day7.txt")
 	hands := parseInput(inputs)
-	fmt.Println(partA(hands))
+	partAScore := partA(hands)
+	partBScore := partB(hands)
+
+	fmt.Println("Part A: ", partAScore)
+	fmt.Println("Part B: ", partBScore)
 }
