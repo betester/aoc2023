@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/betester/aoc2023/utils"
 )
@@ -51,8 +52,43 @@ func totalDistanceTraverse(order []byte, graph map[string][]string) int {
 	return total
 }
 
+func multiSourceTotalDistanceTravel(order []byte, graph map[string][]string) int {
+
+	totalSteps := 0
+	startingStates := make([]string, 0)
+
+	for node := range graph {
+		if strings.HasSuffix(node, "A") {
+			startingStates = append(startingStates, node)
+		}
+	}
+
+	// this assumes that there is no cycle found
+	for {
+		allEndsWithZ := true
+
+		for i := 0; i < len(startingStates); i++ {
+			leftState, rightState := graph[startingStates[i]][0], graph[startingStates[i]][1]
+
+			if order[totalSteps%len(order)] == LEFT {
+				startingStates[i] = leftState
+			} else {
+				startingStates[i] = rightState
+			}
+			allEndsWithZ = allEndsWithZ && strings.HasSuffix(startingStates[i], "Z")
+		}
+
+		totalSteps++
+		if allEndsWithZ {
+			break
+		}
+	}
+	return totalSteps
+}
+
 func main() {
 	inputs := utils.FileReader("./day8/day8.txt")
 	order, graph := parseInput(inputs)
 	fmt.Println(totalDistanceTraverse([]byte(order), graph))
+	fmt.Println(multiSourceTotalDistanceTravel([]byte(order), graph))
 }
